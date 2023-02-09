@@ -1,4 +1,4 @@
-use crate::{config::KubeConfig, error::Error, utils, Result};
+use crate::{config::KubeConfig, error::Error, utils, EventHandlerFactory, Result, SCHEMA};
 use futures::{StreamExt, TryStreamExt};
 use kube::{
     api::ListParams,
@@ -13,18 +13,6 @@ use std::collections::HashMap;
 use tokio::task::JoinHandle;
 use tower::ServiceBuilder;
 
-trait EventHandlerFactory: FactoryClone {
-    fn build(&self, caps: ApiCapabilities) -> Box<dyn EventHandler + Send>;
-}
-
-trait FactoryClone {
-    fn clone_box(&self) -> Box<dyn EventHandlerFactory + Send>;
-}
-
-trait EventHandler {
-    fn process(&self, e: watcher::Event<DynamicObject>) -> Result<()>;
-}
-
 struct ApiConfig {
     caps: ApiCapabilities,
     api: Api<DynamicObject>,
@@ -35,7 +23,6 @@ pub struct Watcher<'a> {
     r: &'a Vec<TypeMeta>,
     pub client: Client,
     watch_pool: HashMap<GroupVersionKind, ApiConfig>,
-    pub factorys: HashMap<GroupVersionKind, Box<dyn EventHandlerFactory + Send>>,
 }
 
 impl<'a> Watcher<'a> {
@@ -56,7 +43,6 @@ impl<'a> Watcher<'a> {
         Ok(Watcher {
             r: r,
             client: Client::new(service, rest_config.default_namespace),
-            factorys: HashMap::with_capacity(r.len()),
             watch_pool: HashMap::with_capacity(r.len()),
         })
     }
@@ -84,19 +70,19 @@ impl<'a> Watcher<'a> {
     }
 
     pub async fn watch(&self) -> Result<()> {
-        if self.factorys.len() != self.r.len() {
+        if SCHEMA.lock().await.len() != self.r.len() {
             panic!(
                 "please make sure all resource EventHandler were registered,
             kufu decide to watch {} kind k8s reousrce, but only have {} handler
             ",
                 self.r.len(),
-                self.factorys.len()
+                SCHEMA.lock().await.len()
             )
         }
         let mut watchers = Vec::with_capacity(self.r.len());
         for (gvk, api_config) in self.watch_pool.iter() {
             let mut events = watcher(api_config.api.clone(), ListParams::default()).boxed();
-            let factory = self.dispatcher(gvk);
+            let factory = self.dispatcher(gvk).await;
             let caps = api_config.caps.clone();
             watchers.push(tokio::spawn(async move {
                 let handler = factory.build(caps);
@@ -107,20 +93,12 @@ impl<'a> Watcher<'a> {
             }));
         }
         for w in watchers {
-            w.await?;
+            _ = w.await?;
         }
         Ok(())
     }
 
-    fn dispatcher(&self, gvk: &GroupVersionKind) -> Box<dyn EventHandlerFactory + Send> {
-        self.factorys.get(gvk).unwrap().clone_box()
+    async fn dispatcher(&self, gvk: &GroupVersionKind) -> Box<dyn EventHandlerFactory> {
+        SCHEMA.lock().await.get(gvk).unwrap().clone_box()
     }
-}
-
-pub fn register(
-    watcher: &mut Watcher,
-    gvk: GroupVersionKind,
-    f: Box<dyn EventHandlerFactory + Send>,
-) {
-    watcher.factorys.insert(gvk, f);
 }

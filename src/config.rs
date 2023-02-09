@@ -6,11 +6,11 @@ use std::{fs, path::Path};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
-    mount: Mount,
-    resources: Option<Vec<TypeMeta>>,
+    pub mount: Mount,
+    pub resources: Option<Vec<TypeMeta>>,
 
     #[serde(rename(serialize = "kube-configs", deserialize = "kube-configs"))]
-    kube_configs: Option<Vec<KubeConfig>>,
+    pub kube_configs: Option<Vec<KubeConfig>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
