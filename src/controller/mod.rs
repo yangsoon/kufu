@@ -1,5 +1,9 @@
-use crate::EventHandler;
+use crate::Result;
 pub mod dynamic;
 pub mod pod;
 
-trait Controller: EventHandler {}
+pub use pod::*;
+
+trait Controller {
+    fn resync(&self) -> Result<()>;
+}

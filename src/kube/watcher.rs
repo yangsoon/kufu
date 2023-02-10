@@ -3,7 +3,7 @@ use futures::{StreamExt, TryStreamExt};
 use kube::{
     api::ListParams,
     client::ConfigExt,
-    config::Kubeconfig,
+    config::{KubeConfigOptions, Kubeconfig},
     core::{DynamicObject, GroupVersionKind, TypeMeta},
     discovery::{self, ApiCapabilities},
     runtime::watcher,
@@ -34,14 +34,15 @@ impl<'a> Watcher<'a> {
                 panic!("kubeconfig information is empty, please set config-path or raw kubeconfig data")
             }
         };
-        let config_options = utils::get_current_kubeconfig_options(&kubeconfig);
-        let rest_config = Config::from_custom_kubeconfig(kubeconfig, &config_options).await?;
+        let rest_config =
+            Config::from_custom_kubeconfig(kubeconfig, &KubeConfigOptions::default()).await?;
+        println!("{:?}", rest_config);
         let service = ServiceBuilder::new()
             .layer(rest_config.base_uri_layer())
             .option_layer(rest_config.auth_layer()?)
             .service(hyper::Client::new());
         Ok(Watcher {
-            r: r,
+            r,
             client: Client::new(service, rest_config.default_namespace),
             watch_pool: HashMap::with_capacity(r.len()),
         })
@@ -70,13 +71,13 @@ impl<'a> Watcher<'a> {
     }
 
     pub async fn watch(&self) -> Result<()> {
-        if SCHEMA.lock().await.len() != self.r.len() {
+        if SCHEMA.lock().unwrap().len() != self.r.len() {
             panic!(
                 "please make sure all resource EventHandler were registered,
             kufu decide to watch {} kind k8s reousrce, but only have {} handler
             ",
                 self.r.len(),
-                SCHEMA.lock().await.len()
+                SCHEMA.lock().unwrap().len()
             )
         }
         let mut watchers = Vec::with_capacity(self.r.len());
@@ -84,8 +85,9 @@ impl<'a> Watcher<'a> {
             let mut events = watcher(api_config.api.clone(), ListParams::default()).boxed();
             let factory = self.dispatcher(gvk).await;
             let caps = api_config.caps.clone();
+            let client = self.client.clone();
             watchers.push(tokio::spawn(async move {
-                let handler = factory.build(caps);
+                let handler = factory.build(caps, client);
                 while let Some(e) = events.try_next().await? {
                     handler.process(e)?;
                 }
@@ -99,6 +101,6 @@ impl<'a> Watcher<'a> {
     }
 
     async fn dispatcher(&self, gvk: &GroupVersionKind) -> Box<dyn EventHandlerFactory> {
-        SCHEMA.lock().await.get(gvk).unwrap().clone_box()
+        SCHEMA.lock().unwrap().get(gvk).unwrap().clone_box()
     }
 }

@@ -4,8 +4,6 @@ mount:
 resources:
     - apiVersion: v1
       kind: Pod
-    - apiVersion: v1
-      kind: Deployment
 kube-configs:
     - config-path: ~/.kube/config
       raw:

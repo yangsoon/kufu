@@ -14,4 +14,6 @@ async fn main() {
     let config = &kufu_config.kube_configs.unwrap()[0];
 
     let mut watcher = watcher::Watcher::new(r, config).await.unwrap();
+    watcher.build_api_pool().await.unwrap();
+    watcher.watch().await.unwrap();
 }
