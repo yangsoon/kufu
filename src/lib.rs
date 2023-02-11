@@ -5,17 +5,34 @@ use ::kube::{
     Client,
 };
 use controller::PodControllerFactory;
+use sled::IVec;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
 pub mod args;
 pub mod config;
 pub mod controller;
+pub mod db;
 pub mod error;
 pub mod kube;
 pub mod utils;
 
 pub type Result<T> = std::result::Result<T, error::Error>;
+
+pub struct ClusterObject<'a> {
+    cluster: &'a str,
+    caps: &'a ApiCapabilities,
+    obj: &'a DynamicObject,
+}
+
+impl<'a> TryInto<IVec> for &ClusterObject<'a> {
+    type Error = error::Error;
+
+    fn try_into(self) -> std::result::Result<IVec, Self::Error> {
+        let obj_data = &*serde_yaml::to_string(self.obj)?;
+        Ok(obj_data.into())
+    }
+}
 
 pub trait EventHandlerFactory: FactoryClone + Send + Sync {
     fn build(&self, caps: ApiCapabilities, client: Client) -> Box<dyn EventHandler>;

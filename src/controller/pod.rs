@@ -1,6 +1,12 @@
 use super::Controller;
 use crate::{EventHandler, EventHandlerFactory, FactoryClone, Result};
-use kube::{core::DynamicObject, discovery::ApiCapabilities, runtime::watcher::Event, Client};
+use kube::{
+    core::DynamicObject,
+    discovery::ApiCapabilities,
+    runtime::watcher::Event,
+    runtime::watcher::Event::{Applied, Deleted, Restarted},
+    Client,
+};
 
 #[warn(dead_code)]
 struct PodController {
@@ -12,6 +18,10 @@ impl PodController {
     fn new(client: Client, caps: ApiCapabilities) -> PodController {
         PodController { client, caps }
     }
+
+    fn on_add() {}
+    fn on_delete() {}
+    fn on_restart() {}
 }
 
 impl Controller for PodController {
@@ -22,17 +32,20 @@ impl Controller for PodController {
 
 impl EventHandler for PodController {
     fn process(&self, e: Event<DynamicObject>) -> Result<()> {
-        println!("{:?}", e);
-        Ok(())
+        match e {
+            Applied(o) => Ok(()),
+            Deleted(o) => Ok(()),
+            Restarted(o) => Ok(()),
+        }
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct PodControllerFactory {}
+pub struct PodControllerFactory;
 
 impl PodControllerFactory {
     pub fn new_box() -> Box<PodControllerFactory> {
-        Box::new(PodControllerFactory {})
+        Box::new(PodControllerFactory)
     }
 }
 

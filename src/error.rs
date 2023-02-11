@@ -19,6 +19,12 @@ pub enum Error {
     #[error("watch event failed: {0}")]
     WatchEventFail(#[from] watcher::Error),
 
-    #[error("tokio runtime join task error: {0}")]
+    #[error("tokio runtime join task failed: {0}")]
     RuntimeJoinTaskFail(#[from] task::JoinError),
+
+    #[error("store or get dynamicObject for sled failed: {0}")]
+    StoreDynamicObjectFailed(#[from] sled::Error),
+
+    #[error("serialize dynamicObject to yaml failed: {0}")]
+    SerializeDynamicObject2Yaml(#[from] serde_yaml::Error),
 }
