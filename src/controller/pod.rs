@@ -1,9 +1,6 @@
 use super::Controller;
 use crate::{EventHandler, EventHandlerFactory, FactoryClone, Result};
-use kube::discovery::ApiCapabilities;
-use kube::runtime::watcher::Event;
-use kube::Client;
-use kube_core::DynamicObject;
+use kube::{core::DynamicObject, discovery::ApiCapabilities, runtime::watcher::Event, Client};
 
 #[warn(dead_code)]
 struct PodController {

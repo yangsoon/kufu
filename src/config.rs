@@ -1,6 +1,5 @@
 use crate::{error::Error, Result};
-use kube::api::TypeMeta;
-use kube::config::Kubeconfig;
+use kube::{api::TypeMeta, config::Kubeconfig};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 

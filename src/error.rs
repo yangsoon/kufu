@@ -1,7 +1,4 @@
-use kube::config::KubeconfigError;
-use kube::runtime::watcher;
-use kube_client;
-use kube_core::gvk;
+use kube::{config::KubeconfigError, core::gvk, runtime::watcher};
 use thiserror::Error;
 use tokio::task;
 
@@ -14,7 +11,7 @@ pub enum Error {
     LoadKubeconfigFail(#[from] KubeconfigError),
 
     #[error("build kube-client failed: {0}")]
-    BuldKubeClientFail(#[from] kube_client::Error),
+    BuildKubeClientFail(#[from] kube::error::Error),
 
     #[error("parse gvk from TypeMeta failed: {0}")]
     ParseGVKFail(#[from] gvk::ParseGroupVersionError),

@@ -1,3 +1,13 @@
+#[macro_use]
+extern crate lazy_static;
+use ::kube::{
+    core::DynamicObject, core::GroupVersionKind, discovery::ApiCapabilities, runtime::watcher,
+    Client,
+};
+use controller::PodControllerFactory;
+use std::collections::HashMap;
+use std::sync::Mutex;
+
 pub mod args;
 pub mod config;
 pub mod controller;
@@ -5,15 +15,6 @@ pub mod error;
 pub mod kube;
 pub mod utils;
 
-#[macro_use]
-extern crate lazy_static;
-use ::kube::Client;
-use ::kube::{
-    core::DynamicObject, core::GroupVersionKind, discovery::ApiCapabilities, runtime::watcher,
-};
-use controller::PodControllerFactory;
-use std::collections::HashMap;
-use std::sync::Mutex;
 pub type Result<T> = std::result::Result<T, error::Error>;
 
 pub trait EventHandlerFactory: FactoryClone + Send + Sync {

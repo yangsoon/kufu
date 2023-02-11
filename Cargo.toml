@@ -11,7 +11,7 @@ path = "src/main.rs"
 name = "kufu"
 
 [dependencies]
-kube = { version = "0.78.0", features = ["runtime", "derive", "config"] }
+kube = { version = "0.78.0", features = ["runtime", "derive", "config", "client"] }
 k8s-openapi = { version = "0.17.0", features = ["v1_26"] }
 futures = {version = "0.3"}
 sled = {version = "0.34"}
@@ -30,8 +30,6 @@ tower = {version = "0.4.6", features = [
     "filter",
     "util",
 ]}
-kube-client = {version = "0.78"}
-kube-core = {version = "0.78"}
 tokio = {version = "1.24", features=["full"]}
 waitgroup = {version = "0.1"}
 lazy_static = "1.4.0"

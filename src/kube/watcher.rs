@@ -1,8 +1,7 @@
-use crate::{config::KubeConfig, error::Error, utils, EventHandlerFactory, Result, SCHEMA};
+use crate::{config::KubeConfig, error::Error, EventHandlerFactory, Result, SCHEMA};
 use futures::{StreamExt, TryStreamExt};
 use kube::{
     api::ListParams,
-    client::ConfigExt,
     config::{KubeConfigOptions, Kubeconfig},
     core::{DynamicObject, GroupVersionKind, TypeMeta},
     discovery::{self, ApiCapabilities},
@@ -11,7 +10,6 @@ use kube::{
 };
 use std::collections::HashMap;
 use tokio::task::JoinHandle;
-use tower::ServiceBuilder;
 
 struct ApiConfig {
     caps: ApiCapabilities,
@@ -36,14 +34,10 @@ impl<'a> Watcher<'a> {
         };
         let rest_config =
             Config::from_custom_kubeconfig(kubeconfig, &KubeConfigOptions::default()).await?;
-        println!("{:?}", rest_config);
-        let service = ServiceBuilder::new()
-            .layer(rest_config.base_uri_layer())
-            .option_layer(rest_config.auth_layer()?)
-            .service(hyper::Client::new());
+        let client = Client::try_from(rest_config)?;
         Ok(Watcher {
             r,
-            client: Client::new(service, rest_config.default_namespace),
+            client: client,
             watch_pool: HashMap::with_capacity(r.len()),
         })
     }

@@ -1,6 +1,5 @@
 use clap::Parser;
-use kufu::args::Args;
-use kufu::{config::load, kube::watcher};
+use kufu::{args::Args, config::load, kube::watcher};
 use tracing::*;
 
 #[tokio::main]
