@@ -1,14 +1,3 @@
-#[macro_use]
-extern crate lazy_static;
-use ::kube::{
-    core::DynamicObject, core::GroupVersionKind, discovery::ApiCapabilities, runtime::watcher,
-    Client,
-};
-use controller::PodControllerFactory;
-use sled::IVec;
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 pub mod args;
 pub mod config;
 pub mod controller;
@@ -16,6 +5,18 @@ pub mod db;
 pub mod error;
 pub mod kube;
 pub mod utils;
+
+#[macro_use]
+extern crate lazy_static;
+use ::kube::{
+    core::DynamicObject, core::GroupVersionKind, discovery::ApiCapabilities, runtime::watcher,
+    Client,
+};
+use controller::PodControllerFactory;
+use db::Storage;
+use sled::IVec;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 pub type Result<T> = std::result::Result<T, error::Error>;
 
@@ -35,7 +36,12 @@ impl<'a> TryInto<IVec> for &ClusterObject<'a> {
 }
 
 pub trait EventHandlerFactory: FactoryClone + Send + Sync {
-    fn build(&self, caps: ApiCapabilities, client: Client) -> Box<dyn EventHandler>;
+    fn build(
+        &self,
+        caps: ApiCapabilities,
+        client: Client,
+        store: Arc<Box<dyn Storage>>,
+    ) -> Box<dyn EventHandler>;
 }
 
 pub trait FactoryClone {

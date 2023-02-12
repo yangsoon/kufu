@@ -1,14 +1,16 @@
+pub mod local;
+pub use local::*;
+
+use crate::Result;
+use crate::{config::Mount, ClusterObject};
 use kube::core::DynamicObject;
 
-use crate::{config::Mount, ClusterObject};
-pub mod local;
-use crate::Result;
-
 pub struct StoreOption {
-    mouth: Option<Mount>,
+    mount: Option<Mount>,
 }
 
-pub trait Store {
+pub trait Storage: Sync + Send {
     fn set(&self, cluster_obj: &ClusterObject) -> Result<()>;
     fn get(&self, cluster_obj: &ClusterObject) -> Result<Option<DynamicObject>>;
+    fn delete(&self, cluster_obj: &ClusterObject) -> Result<()>;
 }

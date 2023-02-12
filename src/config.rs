@@ -16,7 +16,7 @@ pub struct Config {
 #[serde(rename_all = "kebab-case")]
 pub struct Mount {
     data_path: Option<String>,
-    meta_path: Option<String>,
+    pub meta_path: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

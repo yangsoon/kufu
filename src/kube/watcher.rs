@@ -1,4 +1,4 @@
-use crate::{config::KubeConfig, error::Error, EventHandlerFactory, Result, SCHEMA};
+use crate::{config::KubeConfig, db::Storage, error::Error, EventHandlerFactory, Result, SCHEMA};
 use futures::{StreamExt, TryStreamExt};
 use kube::{
     api::ListParams,
@@ -9,6 +9,7 @@ use kube::{
     Api, Client, Config,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::task::JoinHandle;
 
 struct ApiConfig {
@@ -21,10 +22,15 @@ pub struct Watcher<'a> {
     r: &'a Vec<TypeMeta>,
     pub client: Client,
     watch_pool: HashMap<GroupVersionKind, ApiConfig>,
+    store: Arc<Box<dyn Storage>>,
 }
 
 impl<'a> Watcher<'a> {
-    pub async fn new(r: &'a Vec<TypeMeta>, c: &KubeConfig) -> Result<Watcher<'a>> {
+    pub async fn new(
+        r: &'a Vec<TypeMeta>,
+        c: &KubeConfig,
+        store: Box<dyn Storage>,
+    ) -> Result<Watcher<'a>> {
         let kubeconfig = match (&c.config_path, &c.raw) {
             (_, Some(data)) => data.to_owned(),
             (Some(path), None) => Kubeconfig::read_from(path)?,
@@ -39,6 +45,7 @@ impl<'a> Watcher<'a> {
             r,
             client: client,
             watch_pool: HashMap::with_capacity(r.len()),
+            store: Arc::new(store),
         })
     }
 
@@ -80,8 +87,9 @@ impl<'a> Watcher<'a> {
             let factory = self.dispatcher(gvk).await;
             let caps = api_config.caps.clone();
             let client = self.client.clone();
+            let s = Arc::clone(&self.store);
             watchers.push(tokio::spawn(async move {
-                let handler = factory.build(caps, client);
+                let handler = factory.build(caps, client, s);
                 while let Some(e) = events.try_next().await? {
                     handler.process(e)?;
                 }

@@ -1,15 +1,15 @@
 use kube::{core::DynamicObject, discovery::Scope};
 use sled::{Db, IVec};
 use std::path::Path;
-use std::sync::Arc;
 
-use super::Store;
+use super::Storage;
 use crate::{ClusterObject, Result};
 
+#[derive(Clone)]
 pub struct SledDb(Db);
 
 impl SledDb {
-    fn new(path: impl AsRef<Path>) -> SledDb {
+    pub fn new(path: impl AsRef<Path>) -> SledDb {
         SledDb(sled::open(path).unwrap())
     }
 
@@ -31,7 +31,7 @@ impl SledDb {
     fn get_sub_obj_full_key() {}
 }
 
-impl Store for SledDb {
+impl Storage for SledDb {
     fn set(&self, cluster_obj: &ClusterObject) -> Result<()> {
         let key = SledDb::get_obj_full_key(cluster_obj);
         let value: IVec = cluster_obj.try_into()?;
@@ -46,5 +46,11 @@ impl Store for SledDb {
             Some(v) => Ok(Some(serde_yaml::from_slice(v.as_ref())?)),
             None => Ok(None),
         }
+    }
+
+    fn delete(&self, cluster_obj: &ClusterObject) -> Result<()> {
+        let key = SledDb::get_obj_full_key(cluster_obj);
+        self.0.remove(key)?;
+        Ok(())
     }
 }
