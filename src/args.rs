@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    #[arg(long, default_value_t = String::from("local"))]
+    #[arg(long, default_value_t = String::from("default"))]
     pub cluster_name: String,
 
     #[arg(short,long, default_value_t = String::from("/Users/yangs/Project/Rust/kufu/test/config"))]

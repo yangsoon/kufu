@@ -6,7 +6,7 @@ use tracing::*;
 async fn main() {
     tracing_subscriber::fmt::init();
     let args = Args::parse();
-    info!("build local file system for {}", args.cluster_name);
+    info!("build local file system for {} cluster", args.cluster_name);
     let kufu_config = load(args.config_path).unwrap();
 
     let r = &kufu_config.resources.unwrap();

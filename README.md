@@ -1,4 +1,8 @@
 ## Kufu
 
 ### What is Kufu
-kufu sounds like **kung fu** and it can help you manage K8S as you would a local file. you can get Pod. just type `cat ./pod/hello`. so please forget the large number of kubectl commands, and play your k8s with less burden.
+Kufu sounds like **kung fu**, It can help you manage K8S as you would a local file. 
+
+You can get k8s pod resource just type `cat ./pod/hello`. 
+
+So please forget the large number of kubectl commands, and play your k8s with less burden.

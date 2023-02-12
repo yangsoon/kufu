@@ -12,6 +12,7 @@ use ::kube::{
     core::DynamicObject, core::GroupVersionKind, discovery::ApiCapabilities, runtime::watcher,
     Client,
 };
+use async_trait::async_trait;
 use controller::PodControllerFactory;
 use db::Storage;
 use sled::IVec;
@@ -21,12 +22,24 @@ use std::sync::{Arc, Mutex};
 pub type Result<T> = std::result::Result<T, error::Error>;
 
 pub struct ClusterObject<'a> {
-    cluster: &'a str,
-    caps: &'a ApiCapabilities,
-    obj: &'a DynamicObject,
+    pub meta: &'a ClusterObjectMeta,
+    pub obj: &'a DynamicObject,
 }
 
-impl<'a> TryInto<IVec> for &ClusterObject<'a> {
+#[derive(Clone)]
+pub struct ClusterObjectMeta {
+    pub cluster: String,
+    pub gvk: GroupVersionKind,
+    pub caps: ApiCapabilities,
+}
+
+impl ClusterObjectMeta {
+    pub fn new(cluster: String, gvk: GroupVersionKind, caps: ApiCapabilities) -> ClusterObjectMeta {
+        ClusterObjectMeta { cluster, gvk, caps }
+    }
+}
+
+impl<'a> TryInto<IVec> for ClusterObject<'a> {
     type Error = error::Error;
 
     fn try_into(self) -> std::result::Result<IVec, Self::Error> {
@@ -38,7 +51,7 @@ impl<'a> TryInto<IVec> for &ClusterObject<'a> {
 pub trait EventHandlerFactory: FactoryClone + Send + Sync {
     fn build(
         &self,
-        caps: ApiCapabilities,
+        meta: ClusterObjectMeta,
         client: Client,
         store: Arc<Box<dyn Storage>>,
     ) -> Box<dyn EventHandler>;
@@ -48,8 +61,9 @@ pub trait FactoryClone {
     fn clone_box(&self) -> Box<dyn EventHandlerFactory>;
 }
 
-pub trait EventHandler: Send {
-    fn process(&self, e: watcher::Event<DynamicObject>) -> Result<()>;
+#[async_trait]
+pub trait EventHandler: Send + Sync {
+    async fn process(&self, e: watcher::Event<DynamicObject>) -> Result<()>;
 }
 
 lazy_static! {

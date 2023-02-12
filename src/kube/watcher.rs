@@ -1,4 +1,7 @@
-use crate::{config::KubeConfig, db::Storage, error::Error, EventHandlerFactory, Result, SCHEMA};
+use crate::{
+    config::KubeConfig, db::Storage, error::Error, ClusterObjectMeta, EventHandlerFactory, Result,
+    SCHEMA,
+};
 use futures::{StreamExt, TryStreamExt};
 use kube::{
     api::ListParams,
@@ -85,13 +88,17 @@ impl<'a> Watcher<'a> {
         for (gvk, api_config) in self.watch_pool.iter() {
             let mut events = watcher(api_config.api.clone(), ListParams::default()).boxed();
             let factory = self.dispatcher(gvk).await;
-            let caps = api_config.caps.clone();
+            let object_meta = ClusterObjectMeta::new(
+                "default".to_string(),
+                gvk.to_owned(),
+                api_config.caps.clone(),
+            );
             let client = self.client.clone();
             let s = Arc::clone(&self.store);
             watchers.push(tokio::spawn(async move {
-                let handler = factory.build(caps, client, s);
+                let handler = factory.build(object_meta, client, s);
                 while let Some(e) = events.try_next().await? {
-                    handler.process(e)?;
+                    handler.process(e).await?;
                 }
                 Ok::<(), Error>(())
             }));
