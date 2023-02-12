@@ -25,15 +25,15 @@ impl PodController {
         }
     }
 
-    fn on_add(&self, store: &Box<dyn Storage>, o: DynamicObject) -> Result<()> {
+    fn on_add(&self, o: DynamicObject) -> Result<()> {
         println!("add: {}", o.metadata.name.unwrap());
         Ok(())
     }
-    fn on_delete(&self, store: &Box<dyn Storage>, o: DynamicObject) -> Result<()> {
+    fn on_delete(&self, o: DynamicObject) -> Result<()> {
         println!("delete: {}", o.metadata.name.unwrap());
         Ok(())
     }
-    fn on_resync(&self, store: &Box<dyn Storage>, objs: Vec<DynamicObject>) -> Result<()> {
+    fn on_resync(&self, objs: Vec<DynamicObject>) -> Result<()> {
         println!("sync: {:?}", objs);
         Ok(())
     }
@@ -48,9 +48,9 @@ impl Controller for PodController {
 impl EventHandler for PodController {
     fn process(&self, e: Event<DynamicObject>) -> Result<()> {
         match e {
-            Applied(o) => self.on_add(self.store.as_ref(), o),
-            Deleted(o) => self.on_delete(self.store.as_ref(), o),
-            Restarted(o) => self.on_resync(self.store.as_ref(), o),
+            Applied(o) => self.on_add(o),
+            Deleted(o) => self.on_delete(o),
+            Restarted(o) => self.on_resync(o),
         }
     }
 }
