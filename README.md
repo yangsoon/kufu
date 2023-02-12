@@ -1,25 +1,4 @@
-<h1 align="center">Welcome to kufu 👋</h1>
-<p>
-  <a href="https://twitter.com/yangsoonlx" target="_blank">
-    <img alt="Twitter: yangsoonlx" src="https://img.shields.io/twitter/follow/yangsoonlx.svg?style=social" />
-  </a>
-</p>
+## Kufu
 
-> Run and maintain your k8s as if it were a local file system.
-
-### 🏠 [Homepage](https://yangsoon.github.io/)
-
-## Author
-
-👤 **yangsoon**
-
-* Website: http://yangsoon.github.io
-* Twitter: [@yangsoonlx](https://twitter.com/yangsoonlx)
-* Github: [@yangsoon](https://github.com/yangsoon)
-
-## Show your support
-
-Give a ⭐️ if this project helped you!
-
-***
-_This README was generated with ❤️ by [readme-md-generator](https://github.com/kefranabg/readme-md-generator)_
+### What is Kufu
+kufu sounds like **kung fu** and it can help you manage K8S as you would a local file. you can get Pod. just type `cat ./pod/hello`. so please forget the large number of kubectl commands, and play your k8s with less burden.
