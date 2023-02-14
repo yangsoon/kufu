@@ -3,6 +3,7 @@ pub mod config;
 pub mod controller;
 pub mod db;
 pub mod error;
+pub mod fuse;
 pub mod kube;
 pub mod utils;
 

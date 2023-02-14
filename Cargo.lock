@@ -882,6 +882,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "lazy_static",
+ "libc",
  "log",
  "serde",
  "serde_yaml 0.9.17",
