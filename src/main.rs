@@ -12,7 +12,7 @@ async fn main() {
     let r = &kufu_config.resources.unwrap();
     let config = &kufu_config.kube_configs.unwrap()[0];
 
-    let store = kufu::db::SledDb::new(kufu_config.mount.meta_path.unwrap());
+    let store = kufu::db::SledDb::new(kufu_config.mount.meta_path.unwrap()).unwrap();
     let mut watcher = watcher::Watcher::new(r, config, Box::new(store))
         .await
         .unwrap();

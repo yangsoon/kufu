@@ -39,7 +39,7 @@ impl PodController {
             "pod apply  event: {:#?}/{:#?}",
             &o.metadata.namespace, &o.metadata.name
         );
-        self.store.set(self.to_cluster_obj(&o))
+        self.store.add(self.to_cluster_obj(&o))
     }
     fn on_delete(&self, o: DynamicObject) -> Result<()> {
         info!(

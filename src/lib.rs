@@ -5,7 +5,6 @@ pub mod db;
 pub mod error;
 pub mod fuse;
 pub mod kube;
-pub mod utils;
 
 #[macro_use]
 extern crate lazy_static;
@@ -18,6 +17,7 @@ use controller::PodControllerFactory;
 use db::Storage;
 use sled::IVec;
 use std::collections::HashMap;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 
 pub type Result<T> = std::result::Result<T, error::Error>;
@@ -40,11 +40,11 @@ impl ClusterObjectMeta {
     }
 }
 
-impl<'a> TryInto<IVec> for ClusterObject<'a> {
+impl<'a> TryFrom<&ClusterObject<'a>> for IVec {
     type Error = error::Error;
 
-    fn try_into(self) -> std::result::Result<IVec, Self::Error> {
-        let obj_data = &*serde_yaml::to_string(self.obj)?;
+    fn try_from(value: &ClusterObject<'a>) -> std::result::Result<Self, Self::Error> {
+        let obj_data = &*serde_yaml::to_string(value.obj)?;
         Ok(obj_data.into())
     }
 }
@@ -68,6 +68,7 @@ pub trait EventHandler: Send + Sync {
 }
 
 lazy_static! {
+    pub static ref INODE_NUM: AtomicU64 = AtomicU64::new(0);
     pub static ref SCHEMA: Mutex<HashMap<GroupVersionKind, Box<dyn EventHandlerFactory>>> = {
         let mut schema = HashMap::new();
         register(

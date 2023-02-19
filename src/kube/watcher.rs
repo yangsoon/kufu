@@ -95,6 +95,8 @@ impl<'a> Watcher<'a> {
             );
             let client = self.client.clone();
             let s = Arc::clone(&self.store);
+
+            // use queue for raise concurrency https://docs.rs/kube/latest/kube/runtime/utils/struct.StreamBackoff.html
             watchers.push(tokio::spawn(async move {
                 let handler = factory.build(object_meta, client, s);
                 while let Some(e) = events.try_next().await? {
@@ -103,8 +105,10 @@ impl<'a> Watcher<'a> {
                 Ok::<(), Error>(())
             }));
         }
+
+        #[allow(unused_must_use)]
         for w in watchers {
-            _ = w.await?;
+            w.await?;
         }
         Ok(())
     }

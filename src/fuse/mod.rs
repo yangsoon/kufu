@@ -6,6 +6,7 @@ use fuser::{
     ReplyEmpty, ReplyEntry, ReplyIoctl, ReplyLock, ReplyLseek, ReplyOpen, ReplyStatfs, ReplyWrite,
     ReplyXTimes, ReplyXattr, Request, TimeOrNow,
 };
+use kube::Client;
 use libc::{ENOSYS, EPERM};
 use std::ffi::OsStr;
 use std::os::raw::c_int;
@@ -15,6 +16,7 @@ use tracing::*;
 
 pub struct Fs {
     pub inner: core::FsInner,
+    pub client: Client,
 }
 
 impl Filesystem for Fs {
