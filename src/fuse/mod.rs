@@ -1,4 +1,5 @@
 pub mod core;
+pub mod inner;
 
 use fuser::Filesystem;
 use fuser::{
@@ -15,7 +16,7 @@ use std::time::SystemTime;
 use tracing::*;
 
 pub struct Fs {
-    pub inner: core::FsInner,
+    pub inner: inner::FsInner,
     pub client: Client,
 }
 

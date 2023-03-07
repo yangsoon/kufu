@@ -2,7 +2,7 @@ use crate::error;
 use serde::{Deserialize, Serialize};
 use sled::IVec;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -43,7 +43,7 @@ pub struct InodeAttributes {
 }
 
 impl InodeAttributes {
-    pub fn new(inode: u64, size: u64) -> InodeAttributes {
+    pub fn new_file(inode: u64, size: u64) -> InodeAttributes {
         InodeAttributes {
             inode: inode,
             open_file_handles: 0,
@@ -52,6 +52,23 @@ impl InodeAttributes {
             last_modified: time_now(),
             last_metadata_changed: time_now(),
             kind: FileKind::File,
+            mode: 0o777,
+            hardlinks: 0,
+            uid: 0,
+            gid: 0,
+            xattrs: Default::default(),
+        }
+    }
+
+    pub fn new_dict(inode: u64) -> InodeAttributes {
+        InodeAttributes {
+            inode: inode,
+            open_file_handles: 0,
+            size: 0,
+            last_accessed: time_now(),
+            last_modified: time_now(),
+            last_metadata_changed: time_now(),
+            kind: FileKind::Directory,
             mode: 0o777,
             hardlinks: 0,
             uid: 0,
@@ -69,12 +86,38 @@ impl TryFrom<IVec> for InodeAttributes {
     }
 }
 
-impl TryFrom<InodeAttributes> for IVec {
+impl TryFrom<&[u8]> for InodeAttributes {
     type Error = error::Error;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let inode_attr: InodeAttributes = serde_yaml::from_slice(&*value)?;
+        Ok(inode_attr)
+    }
+}
 
-    fn try_from(value: InodeAttributes) -> Result<Self, Self::Error> {
-        let obj_data = &*serde_yaml::to_string(&value)?;
-        Ok(obj_data.into())
+impl From<InodeAttributes> for IVec {
+    fn from(value: InodeAttributes) -> Self {
+        let obj_data = &*serde_yaml::to_string(&value).unwrap();
+        obj_data.into()
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DentryAttributes {
+    pub entries: Vec<u64>,
+}
+
+impl From<DentryAttributes> for IVec {
+    fn from(value: DentryAttributes) -> Self {
+        let obj_data = &*serde_yaml::to_string(&value).unwrap();
+        obj_data.into()
+    }
+}
+
+impl TryFrom<&[u8]> for DentryAttributes {
+    type Error = error::Error;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let dentry_attr: DentryAttributes = serde_yaml::from_slice(&*value)?;
+        Ok(dentry_attr)
     }
 }
 
@@ -100,4 +143,3 @@ fn time_from_system_time(system_time: &SystemTime) -> (i64, u32) {
         ),
     }
 }
-pub struct FsInner {}

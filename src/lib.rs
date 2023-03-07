@@ -13,7 +13,7 @@ use ::kube::{
     Client,
 };
 use async_trait::async_trait;
-use controller::PodControllerFactory;
+use controller::{NamespaceControllerFactory, PodControllerFactory};
 use db::Storage;
 use sled::IVec;
 use std::collections::HashMap;
@@ -75,6 +75,12 @@ lazy_static! {
             &mut schema,
             GroupVersionKind::gvk("", "v1", "Pod"),
             PodControllerFactory::new_box(),
+        );
+
+        register(
+            &mut schema,
+            GroupVersionKind::gvk("", "v1", "Namespace"),
+            NamespaceControllerFactory::new_box(),
         );
         // TODO: add more controller
         Mutex::new(schema)

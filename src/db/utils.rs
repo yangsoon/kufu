@@ -34,6 +34,18 @@ pub fn get_resource_full_key(cluster_obj: &ClusterObject) -> String {
     }
 }
 
+pub fn get_resource_api_key(cluster_obj: &ClusterObject) -> String {
+    let kind = &cluster_obj.meta.gvk.kind;
+    let cluster = &cluster_obj.meta.cluster;
+    let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
+    match cluster_obj.meta.caps.scope {
+        Scope::Namespaced => {
+            format!("{}/namespace/{}/{}", cluster, namespace, kind)
+        }
+        Scope::Cluster => format!("{}/{}", cluster, kind),
+    }
+}
+
 pub fn clean_one_time_buckets(db: &Db) -> Result<()> {
     db.drop_tree(Bucket::RIndex)?;
     db.drop_tree(Bucket::Inode)?;

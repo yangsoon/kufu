@@ -4,11 +4,9 @@ use crate::{
     Result,
 };
 use async_trait::async_trait;
-use k8s_openapi::api::core::v1::Namespace;
+
 use kube::{
-    api::Api,
-    core::{DynamicObject, GroupVersionKind},
-    discovery::{ApiCapabilities, ApiResource, Scope},
+    core::DynamicObject,
     runtime::watcher::Event,
     runtime::watcher::Event::{Applied, Deleted, Restarted},
     Client,
@@ -17,20 +15,14 @@ use std::sync::Arc;
 use tracing::info;
 
 #[allow(dead_code)]
-struct PodController {
-    ns_api: Api<Namespace>,
+struct NamespaceController {
     store: Arc<Box<dyn Storage>>,
     meta: ClusterObjectMeta,
 }
 
-impl PodController {
-    fn new(client: Client, meta: ClusterObjectMeta, store: Arc<Box<dyn Storage>>) -> PodController {
-        let ns_api = Api::all(client);
-        PodController {
-            ns_api,
-            meta,
-            store,
-        }
+impl NamespaceController {
+    fn new(meta: ClusterObjectMeta, store: Arc<Box<dyn Storage>>) -> NamespaceController {
+        NamespaceController { meta, store }
     }
     fn to_cluster_obj<'a>(&'a self, o: &'a DynamicObject) -> ClusterObject {
         ClusterObject {
@@ -40,33 +32,14 @@ impl PodController {
     }
     fn on_apply(&self, o: DynamicObject) -> Result<()> {
         info!(
-            "pod apply  event: {:#?}/{:#?}",
+            "namespace apply event: {:#?}/{:#?}",
             &o.metadata.namespace, &o.metadata.name
         );
-        let ns_gvk = GroupVersionKind::gvk("".into(), "v1".into(), "Namespace".into());
-        let ns_obj = ClusterObject {
-            meta: &ClusterObjectMeta {
-                cluster: self.meta.cluster.clone(),
-                gvk: ns_gvk.clone(),
-                caps: ApiCapabilities {
-                    subresources: vec![],
-                    operations: vec![],
-                    scope: Scope::Cluster,
-                },
-            },
-            obj: &DynamicObject::new(
-                &o.metadata.namespace.clone().unwrap(),
-                &ApiResource::from_gvk(&ns_gvk),
-            ),
-        };
-        if !self.store.has(&ns_obj)? {
-            self.store.add(ns_obj)?
-        }
         self.store.add(self.to_cluster_obj(&o))
     }
     fn on_delete(&self, o: DynamicObject) -> Result<()> {
         info!(
-            "pod delete event: {:#?}/{:#?}",
+            "namespace delete event: {:#?}/{:#?}",
             &o.metadata.namespace, &o.metadata.name
         );
         self.store.delete(self.to_cluster_obj(&o))
@@ -79,14 +52,14 @@ impl PodController {
     }
 }
 
-impl Controller for PodController {
+impl Controller for NamespaceController {
     fn resync(&self) -> Result<()> {
         todo!()
     }
 }
 
 #[async_trait]
-impl EventHandler for PodController {
+impl EventHandler for NamespaceController {
     async fn process(&self, e: Event<DynamicObject>) -> Result<()> {
         match e {
             Applied(o) => self.on_apply(o),
@@ -97,26 +70,26 @@ impl EventHandler for PodController {
 }
 
 #[derive(Clone, Copy)]
-pub struct PodControllerFactory;
+pub struct NamespaceControllerFactory;
 
-impl PodControllerFactory {
-    pub fn new_box() -> Box<PodControllerFactory> {
-        Box::new(PodControllerFactory)
+impl NamespaceControllerFactory {
+    pub fn new_box() -> Box<NamespaceControllerFactory> {
+        Box::new(NamespaceControllerFactory)
     }
 }
 
-impl EventHandlerFactory for PodControllerFactory {
+impl EventHandlerFactory for NamespaceControllerFactory {
     fn build(
         &self,
         meta: ClusterObjectMeta,
         client: Client,
         store: Arc<Box<dyn Storage>>,
     ) -> Box<dyn EventHandler> {
-        Box::new(PodController::new(client, meta, store))
+        Box::new(NamespaceController::new(meta, store))
     }
 }
 
-impl FactoryClone for PodControllerFactory {
+impl FactoryClone for NamespaceControllerFactory {
     fn clone_box(&self) -> Box<dyn EventHandlerFactory> {
         Box::new(self.clone())
     }

@@ -12,4 +12,5 @@ pub trait Storage: Sync + Send {
     fn update(&self, cluster_obj: ClusterObject) -> Result<()>;
     fn delete(&self, cluster_obj: ClusterObject) -> Result<()>;
     fn get_bucket(&self, name: Bucket) -> Option<&Tree>;
+    fn has(&self, cluster_obj: &ClusterObject) -> Result<bool>;
 }
