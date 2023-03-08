@@ -4,5 +4,7 @@ mount:
 resources:
     - apiVersion: v1
       kind: Pod
+    - apiVersion: v1
+      kind: Namespace
 kube-configs:
     - config-path: /Users/yangs/.kube/config

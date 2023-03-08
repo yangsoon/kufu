@@ -2,7 +2,7 @@ use crate::error;
 use serde::{Deserialize, Serialize};
 use sled::IVec;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -103,6 +103,7 @@ impl From<InodeAttributes> for IVec {
 
 #[derive(Serialize, Deserialize)]
 pub struct DentryAttributes {
+    pub parent: u64,
     pub entries: Vec<u64>,
 }
 

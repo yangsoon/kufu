@@ -39,10 +39,9 @@ impl PodController {
         }
     }
     fn on_apply(&self, o: DynamicObject) -> Result<()> {
-        info!(
-            "pod apply  event: {:#?}/{:#?}",
-            &o.metadata.namespace, &o.metadata.name
-        );
+        let ns = &o.metadata.namespace.clone().unwrap();
+        let name = &o.metadata.name.clone().unwrap();
+        info!("watched pod: {}/{} apply event", ns, name);
         let ns_gvk = GroupVersionKind::gvk("".into(), "v1".into(), "Namespace".into());
         let ns_obj = ClusterObject {
             meta: &ClusterObjectMeta {
@@ -54,10 +53,7 @@ impl PodController {
                     scope: Scope::Cluster,
                 },
             },
-            obj: &DynamicObject::new(
-                &o.metadata.namespace.clone().unwrap(),
-                &ApiResource::from_gvk(&ns_gvk),
-            ),
+            obj: &DynamicObject::new(ns.as_str().clone(), &ApiResource::from_gvk(&ns_gvk)),
         };
         if !self.store.has(&ns_obj)? {
             self.store.add(ns_obj)?
@@ -65,10 +61,9 @@ impl PodController {
         self.store.add(self.to_cluster_obj(&o))
     }
     fn on_delete(&self, o: DynamicObject) -> Result<()> {
-        info!(
-            "pod delete event: {:#?}/{:#?}",
-            &o.metadata.namespace, &o.metadata.name
-        );
+        let ns = &o.metadata.namespace.clone().unwrap();
+        let name = &o.metadata.name.clone().unwrap();
+        info!("watched pod: {}/{} delete event", ns, name);
         self.store.delete(self.to_cluster_obj(&o))
     }
     fn on_resync(&self, objs: Vec<DynamicObject>) -> Result<()> {

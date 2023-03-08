@@ -31,17 +31,13 @@ impl NamespaceController {
         }
     }
     fn on_apply(&self, o: DynamicObject) -> Result<()> {
-        info!(
-            "namespace apply event: {:#?}/{:#?}",
-            &o.metadata.namespace, &o.metadata.name
-        );
+        let ns = &o.metadata.name.clone().unwrap();
+        info!("watched namespace: {} apply event", ns);
         self.store.add(self.to_cluster_obj(&o))
     }
     fn on_delete(&self, o: DynamicObject) -> Result<()> {
-        info!(
-            "namespace delete event: {:#?}/{:#?}",
-            &o.metadata.namespace, &o.metadata.name
-        );
+        let ns = &o.metadata.name.clone().unwrap();
+        info!("watched namespace: {} delete event", ns);
         self.store.delete(self.to_cluster_obj(&o))
     }
     fn on_resync(&self, objs: Vec<DynamicObject>) -> Result<()> {

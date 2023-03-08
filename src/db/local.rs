@@ -70,6 +70,7 @@ impl SledDb {
                 }
                 None => Some(DentryAttributes {
                     entries: vec![next_inode.0],
+                    parent: parent_inode,
                 }),
             }
         };
