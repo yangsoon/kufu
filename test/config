@@ -1,6 +1,6 @@
 mount:
-    data-path: /Users/yangs/Project/Rust/kufu/test/k8s
-    meta-path: /Users/yangs/Project/Rust/kufu/test/k8s/meta
+    path: /Users/yangs/Project/Rust/kufu/test/k8s
+    data-path: /Users/yangs/Project/Rust/kufu/test/.data
 resources:
     - apiVersion: v1
       kind: Pod

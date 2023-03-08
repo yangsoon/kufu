@@ -1,5 +1,6 @@
 pub mod core;
 pub mod inner;
+pub use inner::*;
 
 use fuser::Filesystem;
 use fuser::{
@@ -15,13 +16,33 @@ use std::path::Path;
 use std::time::SystemTime;
 use tracing::*;
 
+use crate::db::SledDb;
+
 pub struct Fs {
     pub inner: inner::FsInner,
     pub client: Client,
+    pub store: SledDb,
+    pub mount_point: String,
+}
+
+impl Fs {
+    pub fn new(client: Client, store: SledDb, mount_point: String) -> Fs {
+        Fs {
+            inner: FsInner {},
+            client: client,
+            store: store,
+            mount_point: mount_point,
+        }
+    }
 }
 
 impl Filesystem for Fs {
-    fn init(&mut self, _req: &Request<'_>, _config: &mut KernelConfig) -> Result<(), c_int> {
+    fn init(
+        &mut self,
+        _req: &Request<'_>,
+        #[allow(unused_variables)] _config: &mut KernelConfig,
+    ) -> Result<(), c_int> {
+        self.store.init_mount_point(&self.mount_point);
         Ok(())
     }
 

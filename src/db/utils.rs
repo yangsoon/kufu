@@ -3,7 +3,6 @@ use crate::{ClusterObject, Result, INODE_NUM};
 use kube::discovery::Scope;
 use sled::{Db, IVec};
 use std::sync::atomic::Ordering;
-use tracing::info;
 
 pub type SledInode = (u64, IVec);
 
@@ -53,6 +52,19 @@ pub fn get_resource_api_key(cluster_obj: &ClusterObject) -> String {
         }
         Scope::Cluster => {
             format!("{}/{}", cluster, kind)
+        }
+    }
+}
+
+pub fn get_parent_resource_full_key(cluster_obj: &ClusterObject) -> String {
+    let cluster = &cluster_obj.meta.cluster;
+    let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
+    match cluster_obj.meta.caps.scope {
+        Scope::Namespaced => {
+            format!("{}/namespace/{}", cluster, namespace)
+        }
+        Scope::Cluster => {
+            format!("{}", cluster)
         }
     }
 }
