@@ -30,4 +30,10 @@ pub enum Error {
 
     #[error("sled transaction failed: {0}")]
     SledTransactionError(#[from] sled::transaction::TransactionError),
+
+    #[error("look up inode attribute failed: {0}")]
+    InodeAttrNotFount(u64),
+
+    #[error("look up dentry attribute failed: {0}")]
+    DentryAttrNotFount(u64),
 }

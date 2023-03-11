@@ -13,26 +13,29 @@ use libc::{ENOSYS, EPERM};
 use std::ffi::OsStr;
 use std::os::raw::c_int;
 use std::path::Path;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use tracing::*;
 
-use crate::db::{FSManger, SledDb};
+use crate::db::SledDb;
+use crate::Result as KufuResult;
 
 pub struct Fs {
     pub inner: inner::FsInner,
     pub client: Client,
-    pub store: SledDb,
     pub mount_point: String,
 }
 
 impl Fs {
     pub fn new(client: Client, store: SledDb, mount_point: String) -> Fs {
         Fs {
-            inner: FsInner {},
-            client: client,
-            store: store,
-            mount_point: mount_point,
+            inner: FsInner::new(store),
+            client,
+            mount_point,
         }
+    }
+
+    pub fn init(&self) -> KufuResult<()> {
+        self.inner.init(self.mount_point.clone(), vec![])
     }
 }
 
@@ -42,8 +45,6 @@ impl Filesystem for Fs {
         _req: &Request<'_>,
         #[allow(unused_variables)] _config: &mut KernelConfig,
     ) -> Result<(), c_int> {
-        let mount_point_inode = self.store.mount_dir(self.mount_point.clone(), 0).unwrap();
-        self.store.mount_dir("default", mount_point_inode).unwrap();
         Ok(())
     }
 
@@ -60,8 +61,13 @@ impl Filesystem for Fs {
     fn forget(&mut self, _req: &Request<'_>, _ino: u64, _nlookup: u64) {}
 
     fn getattr(&mut self, _req: &Request<'_>, ino: u64, reply: ReplyAttr) {
-        warn!("[Not Implemented] getattr(ino: {:#x?})", ino);
-        reply.error(ENOSYS);
+        match self.inner.get_attr(ino) {
+            Ok(attr) => reply.attr(&Duration::new(0, 0), &attr),
+            Err(e) => {
+                error!("fail to get attr, req: {:?}, err: {:?}", _req, e);
+                reply.error(ENOSYS)
+            }
+        }
     }
 
     fn setattr(
@@ -279,15 +285,17 @@ impl Filesystem for Fs {
         &mut self,
         _req: &Request<'_>,
         ino: u64,
-        fh: u64,
+        _fh: u64,
         offset: i64,
-        reply: ReplyDirectory,
+        mut reply: ReplyDirectory,
     ) {
-        warn!(
-            "[Not Implemented] readdir(ino: {:#x?}, fh: {}, offset: {})",
-            ino, fh, offset
-        );
-        reply.error(ENOSYS);
+        match self.inner.read_dir(ino, offset, &mut reply) {
+            Ok(()) => reply.error(ENOSYS),
+            Err(e) => {
+                error!("fail to read dir, req: {:?}, err: {:?}", _req, e);
+                reply.error(ENOSYS);
+            }
+        }
     }
 
     fn readdirplus(

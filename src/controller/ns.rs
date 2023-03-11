@@ -78,7 +78,7 @@ impl EventHandlerFactory for NamespaceControllerFactory {
     fn build(
         &self,
         meta: ClusterObjectMeta,
-        client: Client,
+        _client: Client,
         store: Arc<Box<dyn Storage>>,
     ) -> Box<dyn EventHandler> {
         Box::new(NamespaceController::new(meta, store))

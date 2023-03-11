@@ -21,19 +21,15 @@ struct ApiConfig {
     gvk: GroupVersionKind,
 }
 
-pub struct Watcher<'a> {
-    r: &'a Vec<TypeMeta>,
+pub struct Watcher {
+    r: Vec<TypeMeta>,
     pub client: Client,
     watch_pool: HashMap<GroupVersionKind, ApiConfig>,
     store: Arc<Box<dyn Storage>>,
 }
 
-impl<'a> Watcher<'a> {
-    pub async fn new(
-        r: &'a Vec<TypeMeta>,
-        c: &KubeConfig,
-        store: Box<dyn Storage>,
-    ) -> Result<Watcher<'a>> {
+impl Watcher {
+    pub async fn new(r: Vec<TypeMeta>, c: &KubeConfig, store: Box<dyn Storage>) -> Result<Watcher> {
         let kubeconfig = match (&c.config_path, &c.raw) {
             (_, Some(data)) => data.to_owned(),
             (Some(path), None) => Kubeconfig::read_from(path)?,
@@ -44,10 +40,11 @@ impl<'a> Watcher<'a> {
         let rest_config =
             Config::from_custom_kubeconfig(kubeconfig, &KubeConfigOptions::default()).await?;
         let client = Client::try_from(rest_config)?;
+        let pool_cap = r.len();
         Ok(Watcher {
             r,
-            client: client,
-            watch_pool: HashMap::with_capacity(r.len()),
+            client,
+            watch_pool: HashMap::with_capacity(pool_cap),
             store: Arc::new(store),
         })
     }
