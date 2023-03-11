@@ -1,7 +1,13 @@
 use crate::db::{FSManger, SledDb};
-use crate::Result;
+use crate::error::Error::ChildEntryNotFound;
+use crate::{Result, FILE_HANDLE_NUM};
 use fuser::{FileAttr, ReplyDirectory};
-use tracing::*;
+use std::ffi::{OsStr, OsString};
+use std::str::FromStr;
+use tracing::info;
+
+const FILE_HANDLE_READ_BIT: u64 = 1 << 63;
+const FILE_HANDLE_WRITE_BIT: u64 = 1 << 62;
 
 pub struct FsInner {
     pub store: SledDb,
@@ -18,6 +24,17 @@ impl FsInner {
         Ok(())
     }
 
+    pub fn look_up(&self, parent: u64, name: &OsStr) -> Result<FileAttr> {
+        let name = name.to_str().unwrap();
+        let dentry = self.store.get_dentry(parent)?;
+        let entry = dentry.entries.get(name);
+        let inode = match entry {
+            Some(item) => item.1,
+            None => return Err(ChildEntryNotFound(dentry.name, name.to_string())),
+        };
+        return self.get_attr(inode);
+    }
+
     pub fn get_attr(&self, inode: u64) -> Result<FileAttr> {
         let attr = self.store.get_inode(inode)?;
         Ok(attr.into())
@@ -25,13 +42,42 @@ impl FsInner {
 
     pub fn read_dir(&self, inode: u64, offset: i64, reply: &mut ReplyDirectory) -> Result<()> {
         let dentry = self.store.get_dentry(inode)?;
-        info!("read dir: {:?}", dentry);
-        for (_, entry) in dentry.entries.iter().skip(offset as usize).enumerate() {
+        info!("success call read_dir, dir: {:?}", dentry);
+        for (index, entry) in dentry.entries.iter().skip(offset as usize).enumerate() {
             let (name, (kind, inode)) = entry;
-            if reply.add(*inode, offset, (*kind).into(), name) {
-                return Ok(());
+            info!(
+                "reply add offset:{:?}, name: {:?} kind: {:?}",
+                offset,
+                OsString::from_str(name)?.as_os_str(),
+                kind,
+            );
+            if reply.add(
+                *inode,
+                offset + index as i64 + 1,
+                (*kind).into(),
+                OsString::from_str(name)?.as_os_str(),
+            ) {
+                break;
             }
         }
         Ok(())
     }
+
+    pub fn open_dir(&self, inode: u64, read: bool, write: bool) -> Result<u64> {
+        let mut inode_attr = self.store.get_inode(inode)?;
+        inode_attr.open_file_handles += 1;
+        self.store.update_inode(inode, inode_attr)?;
+        let mut fh = next_file_handle();
+        if read {
+            fh |= FILE_HANDLE_READ_BIT;
+        }
+        if write {
+            fh |= FILE_HANDLE_WRITE_BIT;
+        }
+        Ok(fh)
+    }
+}
+
+fn next_file_handle() -> u64 {
+    FILE_HANDLE_NUM.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
 }

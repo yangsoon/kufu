@@ -1,8 +1,9 @@
 use crate::error;
 use serde::{Deserialize, Serialize};
 use sled::IVec;
+
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -27,7 +28,7 @@ impl From<FileKind> for fuser::FileType {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct InodeAttributes {
     pub inode: Inode,
     pub open_file_handles: u64, // Ref count of open file handles to this inode

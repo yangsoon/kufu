@@ -46,9 +46,9 @@ pub fn get_resource_full_key(cluster_obj: &ClusterObject) -> String {
 pub fn get_resource_api_key(cluster_obj: &ClusterObject) -> String {
     let kind = &cluster_obj.meta.gvk.kind;
     let cluster = &cluster_obj.meta.cluster;
-    let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
     match cluster_obj.meta.caps.scope {
         Scope::Namespaced => {
+            let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
             format!("{}/namespace/{}/{}", cluster, namespace, kind)
         }
         Scope::Cluster => {
@@ -59,9 +59,9 @@ pub fn get_resource_api_key(cluster_obj: &ClusterObject) -> String {
 
 pub fn get_parent_resource_full_key(cluster_obj: &ClusterObject) -> String {
     let cluster = &cluster_obj.meta.cluster;
-    let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
     match cluster_obj.meta.caps.scope {
         Scope::Namespaced => {
+            let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
             format!("{}/namespace/{}", cluster, namespace)
         }
         Scope::Cluster => {

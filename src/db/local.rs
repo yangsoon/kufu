@@ -1,12 +1,13 @@
 use super::{FSManger, Storage};
 use crate::db::utils::*;
-use crate::error::Error::{DentryAttrNotFount, InodeAttrNotFount};
+use crate::error::Error::{DentryAttrNotFound, InodeAttrNotFound};
 use crate::fuse::core::{time_now, DentryAttributes, FileKind, InodeAttributes};
 use crate::{ClusterObject, Result};
 use kube::core::DynamicObject;
 use sled::Transactional;
 use sled::{Db, IVec, Tree};
 use std::{collections::HashMap, path::Path};
+use tracing::*;
 use Bucket::*;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -67,7 +68,7 @@ impl SledDb {
     pub fn mount_gvk(&self, cluster_obj: &ClusterObject) -> Result<u64> {
         let api_path = get_resource_api_key(cluster_obj);
         let parent_inode = ivec_to_u64(
-            self.get_bucket(Inode)
+            self.get_bucket(RIndex)
                 .get(get_parent_resource_full_key(cluster_obj))?
                 .unwrap(),
         );
@@ -77,9 +78,10 @@ impl SledDb {
 
 impl Storage for SledDb {
     fn add(&self, cluster_obj: ClusterObject) -> Result<()> {
-        if !self.has(&cluster_obj)? {
+        if self.has(&cluster_obj)? {
             return self.update(cluster_obj);
         }
+        // info!("impl Storage for SledDb add: {:?}", cluster_obj.meta);
         self.mount_gvr(cluster_obj)?;
         Ok(())
     }
@@ -122,6 +124,7 @@ impl FSManger for SledDb {
     fn mount_dir(&self, path: impl AsRef<Path>, parent_inode: u64) -> Result<u64> {
         let name = extract_name(path.as_ref());
         let key = into_string(path.as_ref());
+
         if self.get_bucket(RIndex).contains_key(key.clone())? {
             let inode = self.get_bucket(RIndex).get(key.clone())?.unwrap();
             return Ok(ivec_to_u64(inode));
@@ -199,6 +202,9 @@ impl FSManger for SledDb {
     }
 
     fn join_dir(&self, parent_inode: u64, inode: u64, name: String, kind: FileKind) -> Result<()> {
+        if parent_inode == 0 {
+            return Ok(());
+        }
         let update_dentry_attr = |old: Option<&[u8]>| -> Option<DentryAttributes> {
             match old {
                 Some(bytes) => {
@@ -218,7 +224,7 @@ impl FSManger for SledDb {
         let dentry_bucket = self.get_bucket(Dentry);
         let inode_key = u64_to_ivec(inode);
         if !dentry_bucket.contains_key(inode_key.clone())? {
-            return Err(DentryAttrNotFount(inode));
+            return Err(DentryAttrNotFound(inode));
         }
         let attr: DentryAttributes = dentry_bucket.get(inode_key)?.unwrap().try_into()?;
         Ok(attr)
@@ -228,9 +234,15 @@ impl FSManger for SledDb {
         let inode_bucket = self.get_bucket(Inode);
         let inode_key = u64_to_ivec(inode);
         if !inode_bucket.contains_key(inode_key.clone())? {
-            return Err(InodeAttrNotFount(inode));
+            return Err(InodeAttrNotFound(inode));
         }
         let attr: InodeAttributes = inode_bucket.get(inode_key)?.unwrap().try_into()?;
         Ok(attr)
+    }
+
+    fn update_inode(&self, inode: u64, attr: InodeAttributes) -> Result<()> {
+        let value: IVec = attr.try_into()?;
+        self.get_bucket(Inode).insert(u64_to_ivec(inode), value)?;
+        Ok(())
     }
 }

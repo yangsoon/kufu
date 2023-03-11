@@ -22,12 +22,13 @@ use std::sync::{Arc, Mutex};
 
 pub type Result<T> = std::result::Result<T, error::Error>;
 
+#[derive(Debug)]
 pub struct ClusterObject<'a> {
     pub meta: &'a ClusterObjectMeta,
     pub obj: &'a DynamicObject,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ClusterObjectMeta {
     pub cluster: String,
     pub gvk: GroupVersionKind,
@@ -68,7 +69,8 @@ pub trait EventHandler: Send + Sync {
 }
 
 lazy_static! {
-    pub static ref INODE_NUM: AtomicU64 = AtomicU64::new(0);
+    pub static ref INODE_NUM: AtomicU64 = AtomicU64::new(1);
+    pub static ref FILE_HANDLE_NUM: AtomicU64 = AtomicU64::new(1);
     pub static ref SCHEMA: Mutex<HashMap<GroupVersionKind, Box<dyn EventHandlerFactory>>> = {
         let mut schema = HashMap::new();
         install(

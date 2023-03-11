@@ -27,4 +27,5 @@ pub trait FSManger: Sync + Send {
     fn join_dir(&self, parent_inode: u64, inode: u64, name: String, kind: FileKind) -> Result<()>;
     fn get_dentry(&self, inode: u64) -> Result<DentryAttributes>;
     fn get_inode(&self, inode: u64) -> Result<InodeAttributes>;
+    fn update_inode(&self, inode: u64, attr: InodeAttributes) -> Result<()>;
 }

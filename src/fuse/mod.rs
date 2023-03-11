@@ -1,5 +1,6 @@
 pub mod core;
 pub mod inner;
+use fuser::consts::FOPEN_DIRECT_IO;
 pub use inner::*;
 
 use fuser::Filesystem;
@@ -15,6 +16,7 @@ use std::os::raw::c_int;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
 use tracing::*;
+use tracing_subscriber::field::debug;
 
 use crate::db::SledDb;
 use crate::Result as KufuResult;
@@ -51,11 +53,18 @@ impl Filesystem for Fs {
     fn destroy(&mut self) {}
 
     fn lookup(&mut self, _req: &Request<'_>, parent: u64, name: &OsStr, reply: ReplyEntry) {
-        warn!(
-            "[Not Implemented] lookup(parent: {:#x?}, name {:?})",
-            parent, name
-        );
-        reply.error(ENOSYS);
+        match self.inner.look_up(parent, name) {
+            Ok(attr) => {
+                debug!("look up file: attr: {:?}", attr);
+                reply.entry(&Duration::new(0, 0), &attr, 0)
+            }
+            Err(e) => {
+                if !e.to_string().contains("._.") {
+                    error!("fail to lookup name: {:?} in parent err: {:?}", name, e);
+                }
+                reply.error(libc::ENOENT)
+            }
+        }
     }
 
     fn forget(&mut self, _req: &Request<'_>, _ino: u64, _nlookup: u64) {}
@@ -64,8 +73,8 @@ impl Filesystem for Fs {
         match self.inner.get_attr(ino) {
             Ok(attr) => reply.attr(&Duration::new(0, 0), &attr),
             Err(e) => {
-                error!("fail to get attr, req: {:?}, err: {:?}", _req, e);
-                reply.error(ENOSYS)
+                error!("fail to get attr err: {:?}", e);
+                reply.error(libc::ENOENT)
             }
         }
     }
@@ -199,8 +208,32 @@ impl Filesystem for Fs {
         reply.error(EPERM);
     }
 
-    fn open(&mut self, _req: &Request<'_>, _ino: u64, _flags: i32, reply: ReplyOpen) {
-        reply.opened(0, 0);
+    fn open(&mut self, _req: &Request<'_>, ino: u64, flags: i32, reply: ReplyOpen) {
+        debug!("call open inode: {:?}", ino);
+        let (_, read, write) = match flags & libc::O_ACCMODE {
+            libc::O_RDONLY => {
+                // Behavior is undefined, but most filesystems return EACCES
+                if flags & libc::O_TRUNC != 0 {
+                    reply.error(libc::EACCES);
+                    return;
+                }
+                (libc::R_OK, true, false)
+            }
+            libc::O_WRONLY => (libc::W_OK, false, true),
+            libc::O_RDWR => (libc::R_OK | libc::W_OK, true, true),
+            // Exactly one access mode flag must be specified
+            _ => {
+                reply.error(libc::EINVAL);
+                return;
+            }
+        };
+        match self.inner.open_dir(ino, read, write) {
+            Ok(fh) => reply.opened(fh, FOPEN_DIRECT_IO),
+            Err(e) => {
+                error!("fail to open dir, err: {:?}", e);
+                reply.error(ENOSYS);
+            }
+        }
     }
 
     fn read(
@@ -277,8 +310,32 @@ impl Filesystem for Fs {
         reply.error(ENOSYS);
     }
 
-    fn opendir(&mut self, _req: &Request<'_>, _ino: u64, _flags: i32, reply: ReplyOpen) {
-        reply.opened(0, 0);
+    fn opendir(&mut self, _req: &Request<'_>, ino: u64, flags: i32, reply: ReplyOpen) {
+        debug!("call opendir inode: {:?}", ino);
+        let (_, read, write) = match flags & libc::O_ACCMODE {
+            libc::O_RDONLY => {
+                // Behavior is undefined, but most filesystems return EACCES
+                if flags & libc::O_TRUNC != 0 {
+                    reply.error(libc::EACCES);
+                    return;
+                }
+                (libc::R_OK, true, false)
+            }
+            libc::O_WRONLY => (libc::W_OK, false, true),
+            libc::O_RDWR => (libc::R_OK | libc::W_OK, true, true),
+            // Exactly one access mode flag must be specified
+            _ => {
+                reply.error(libc::EINVAL);
+                return;
+            }
+        };
+        match self.inner.open_dir(ino, read, write) {
+            Ok(fh) => reply.opened(fh, FOPEN_DIRECT_IO),
+            Err(e) => {
+                error!("fail to open dir, err: {:?}", e);
+                reply.error(ENOSYS);
+            }
+        }
     }
 
     fn readdir(
@@ -290,9 +347,12 @@ impl Filesystem for Fs {
         mut reply: ReplyDirectory,
     ) {
         match self.inner.read_dir(ino, offset, &mut reply) {
-            Ok(()) => reply.error(ENOSYS),
+            Ok(()) => {
+                info!("success call read_dir, inode: {:?}", ino);
+                reply.ok();
+            }
             Err(e) => {
-                error!("fail to read dir, req: {:?}, err: {:?}", _req, e);
+                error!("fail to read dir, err: {:?}", e);
                 reply.error(ENOSYS);
             }
         }

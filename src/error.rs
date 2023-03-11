@@ -31,9 +31,15 @@ pub enum Error {
     #[error("sled transaction failed: {0}")]
     SledTransactionError(#[from] sled::transaction::TransactionError),
 
+    #[error("convert string to osstring failed: {0}")]
+    ConvertOsStrError(#[from] core::convert::Infallible),
+
     #[error("look up inode attribute failed: {0}")]
-    InodeAttrNotFount(u64),
+    InodeAttrNotFound(u64),
 
     #[error("look up dentry attribute failed: {0}")]
-    DentryAttrNotFount(u64),
+    DentryAttrNotFound(u64),
+
+    #[error("look up child: {1} entry from: parent: {0} failed")]
+    ChildEntryNotFound(String, String),
 }
