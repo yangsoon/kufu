@@ -16,7 +16,7 @@ use std::path::Path;
 use std::time::SystemTime;
 use tracing::*;
 
-use crate::db::SledDb;
+use crate::db::{FSManger, SledDb};
 
 pub struct Fs {
     pub inner: inner::FsInner,
@@ -42,7 +42,8 @@ impl Filesystem for Fs {
         _req: &Request<'_>,
         #[allow(unused_variables)] _config: &mut KernelConfig,
     ) -> Result<(), c_int> {
-        self.store.init_mount_point(&self.mount_point);
+        let mount_point_inode = self.store.mount_dir(self.mount_point.clone(), 0).unwrap();
+        self.store.mount_dir("default", mount_point_inode).unwrap();
         Ok(())
     }
 

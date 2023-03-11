@@ -71,13 +71,13 @@ lazy_static! {
     pub static ref INODE_NUM: AtomicU64 = AtomicU64::new(0);
     pub static ref SCHEMA: Mutex<HashMap<GroupVersionKind, Box<dyn EventHandlerFactory>>> = {
         let mut schema = HashMap::new();
-        register(
+        install(
             &mut schema,
             GroupVersionKind::gvk("", "v1", "Pod"),
             PodControllerFactory::new_box(),
         );
 
-        register(
+        install(
             &mut schema,
             GroupVersionKind::gvk("", "v1", "Namespace"),
             NamespaceControllerFactory::new_box(),
@@ -87,7 +87,7 @@ lazy_static! {
     };
 }
 
-pub fn register(
+pub fn install(
     schema: &mut HashMap<GroupVersionKind, Box<dyn EventHandlerFactory>>,
     gvk: GroupVersionKind,
     f: Box<dyn EventHandlerFactory>,

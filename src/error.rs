@@ -29,5 +29,5 @@ pub enum Error {
     SerializeDynamicObject2Yaml(#[from] serde_yaml::Error),
 
     #[error("sled transaction failed: {0}")]
-    SledTransactionError(#[from]  sled::transaction::TransactionError),
+    SledTransactionError(#[from] sled::transaction::TransactionError),
 }

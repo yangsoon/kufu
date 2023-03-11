@@ -2,6 +2,7 @@ use crate::db::Bucket;
 use crate::{ClusterObject, Result, INODE_NUM};
 use kube::discovery::Scope;
 use sled::{Db, IVec};
+use std::path::Path;
 use std::sync::atomic::Ordering;
 
 pub type SledInode = (u64, IVec);
@@ -74,4 +75,13 @@ pub fn clean_one_time_buckets(db: &Db) -> Result<()> {
     db.drop_tree(Bucket::Inode)?;
     db.drop_tree(Bucket::Dentry)?;
     Ok(())
+}
+
+pub fn extract_name(path: &Path) -> String {
+    let file_name = path.file_name().unwrap();
+    file_name.to_os_string().into_string().unwrap()
+}
+
+pub fn into_string(path: &Path) -> String {
+    path.to_str().unwrap().to_string()
 }

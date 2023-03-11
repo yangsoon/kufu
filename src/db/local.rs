@@ -1,4 +1,4 @@
-use super::Storage;
+use super::{FSManger, Storage};
 use crate::db::utils::*;
 use crate::fuse::core::{time_now, DentryAttributes, InodeAttributes};
 use crate::{ClusterObject, Result};
@@ -39,7 +39,6 @@ impl SledDb {
     pub fn new(path: impl AsRef<Path>) -> Result<SledDb> {
         let db = sled::open(path)?;
         clean_one_time_buckets(&db)?;
-
         Ok(SledDb {
             db: db.clone(),
             buckets: HashMap::from([
@@ -55,123 +54,27 @@ impl SledDb {
         self.buckets.get(&name).unwrap()
     }
 
-    pub fn create_file(&self, cluster_obj: ClusterObject) -> Result<()> {
-        let parent_inode = self.create_api_dict(&cluster_obj)?;
-        let path = get_resource_full_key(&cluster_obj);
-        let next_inode = handle_next_inode();
+    pub fn mount_gvr(&self, cluster_obj: ClusterObject) -> Result<u64> {
+        let parent_inode = self.mount_gvk(&cluster_obj)?;
+        let key = get_resource_full_key(&cluster_obj);
         let value: IVec = (&cluster_obj).try_into()?;
-        let file_name = cluster_obj.obj.metadata.name.clone().unwrap();
-        let inode_attr: IVec = InodeAttributes::new_file(next_inode.0, value.len() as u64).into();
-
-        let update_dentry_attr = |old: Option<&[u8]>| -> Option<DentryAttributes> {
-            match old {
-                Some(bytes) => {
-                    let mut inode_attr: DentryAttributes = bytes.try_into().unwrap();
-                    inode_attr.entries.insert(file_name.clone(), next_inode.0);
-                    Some(inode_attr)
-                }
-                None => None,
-            }
-        };
-
-        self.get_bucket(Dentry)
-            .fetch_and_update(u64_to_ivec(parent_inode), update_dentry_attr)?;
-        (
-            self.get_bucket(RIndex),
-            self.get_bucket(Inode),
-            self.get_bucket(Data),
-        )
-            .transaction(|(rindx, inode, data)| {
-                rindx.insert(path.as_bytes(), next_inode.1.clone())?;
-                inode.insert(next_inode.1.clone(), inode_attr.clone())?;
-                data.insert(next_inode.1.clone(), value.clone())?;
-                Ok(())
-            })?;
-        Ok(())
+        self.mount_file(key, parent_inode, value)
     }
 
-    // TODO!: keep in mind thread safety
-    pub fn update_file(&self, cluster_obj: ClusterObject) -> Result<()> {
-        let path = get_resource_full_key(&cluster_obj);
+    pub fn update_gvr(&self, cluster_obj: ClusterObject) -> Result<()> {
+        let key = get_resource_full_key(&cluster_obj);
         let value: IVec = (&cluster_obj).try_into()?;
-        let inode_ivec = self.get_bucket(Inode).get(path)?.unwrap();
-
-        fn update_inode_attr(old: Option<&[u8]>) -> Option<InodeAttributes> {
-            match old {
-                Some(bytes) => {
-                    let mut inode_attr: InodeAttributes = bytes.try_into().unwrap();
-                    inode_attr.last_modified = time_now();
-                    inode_attr.last_metadata_changed = time_now();
-                    Some(inode_attr)
-                }
-                None => None,
-            }
-        }
-        self.get_bucket(Inode)
-            .fetch_and_update(inode_ivec.clone(), update_inode_attr)?;
-        self.get_bucket(Data)
-            .insert(inode_ivec.clone(), value.clone())?;
-        Ok(())
+        self.edit_file(key, value)
     }
 
-    pub fn create_api_dict(&self, cluster_obj: &ClusterObject) -> Result<u64> {
+    pub fn mount_gvk(&self, cluster_obj: &ClusterObject) -> Result<u64> {
         let api_path = get_resource_api_key(cluster_obj);
-        if self.get_bucket(RIndex).contains_key(api_path.clone())? {
-            let inode = self.get_bucket(RIndex).get(api_path.clone())?.unwrap();
-            return Ok(ivec_to_u64(inode));
-        }
-        let next_inode = handle_next_inode();
-        let inode_attr: IVec = InodeAttributes::new_dict(next_inode.0).into();
         let parent_inode = ivec_to_u64(
             self.get_bucket(Inode)
                 .get(get_parent_resource_full_key(cluster_obj))?
                 .unwrap(),
         );
-        let dentry_attr: IVec = DentryAttributes {
-            parent: parent_inode,
-            name: cluster_obj.obj.metadata.name.clone().unwrap(),
-            entries: HashMap::from([
-                (".".to_string(), next_inode.0),
-                ("..".to_string(), parent_inode),
-            ]),
-        }
-        .into();
-        (
-            self.get_bucket(RIndex),
-            self.get_bucket(Inode),
-            self.get_bucket(Dentry),
-        )
-            .transaction(|(rindx, inode, dentry)| {
-                rindx.insert(api_path.as_bytes(), next_inode.1.clone())?;
-                inode.insert(next_inode.1.clone(), inode_attr.clone())?;
-                dentry.insert(next_inode.1.clone(), dentry_attr.clone())?;
-                Ok(())
-            })?;
-        Ok(next_inode.0)
-    }
-
-    pub fn init_mount_point(&self, path: &String) -> Result<()> {
-        let next_inode = handle_next_inode();
-        let inode_attr: IVec = InodeAttributes::new_dict(next_inode.0).into();
-        let dentry_attr: IVec = DentryAttributes {
-            parent: 0,
-            name: path.clone(),
-            entries: HashMap::from([(".".to_string(), next_inode.0)]),
-        }
-        .into();
-
-        (
-            self.get_bucket(RIndex),
-            self.get_bucket(Inode),
-            self.get_bucket(Dentry),
-        )
-            .transaction(|(rindx, inode, dentry)| {
-                rindx.insert(path.as_bytes(), next_inode.1.clone())?;
-                inode.insert(next_inode.1.clone(), inode_attr.clone())?;
-                dentry.insert(next_inode.1.clone(), dentry_attr.clone())?;
-                Ok(())
-            })?;
-        Ok(())
+        self.mount_dir(api_path, parent_inode)
     }
 }
 
@@ -180,7 +83,7 @@ impl Storage for SledDb {
         if !self.has(&cluster_obj)? {
             return self.update(cluster_obj);
         }
-        self.create_file(cluster_obj)?;
+        self.mount_gvr(cluster_obj)?;
         Ok(())
     }
 
@@ -215,5 +118,97 @@ impl Storage for SledDb {
             .get_bucket(RIndex)
             .contains_key(&get_resource_full_key(cluster_obj))?;
         Ok(exist)
+    }
+}
+
+impl FSManger for SledDb {
+    fn mount_dir(&self, path: impl AsRef<Path>, parent_inode: u64) -> Result<u64> {
+        let name = extract_name(path.as_ref());
+        let key = into_string(path.as_ref());
+        if self.get_bucket(RIndex).contains_key(key.clone())? {
+            let inode = self.get_bucket(RIndex).get(key.clone())?.unwrap();
+            return Ok(ivec_to_u64(inode));
+        }
+        let next_inode = handle_next_inode();
+        let inode_attr: IVec = InodeAttributes::new_dict(next_inode.0).into();
+        let dentry_attr: IVec = DentryAttributes {
+            parent: parent_inode,
+            name: name.clone(),
+            entries: HashMap::from([
+                (".".to_string(), next_inode.0),
+                ("..".to_string(), parent_inode),
+            ]),
+        }
+        .into();
+        self.join_dir(parent_inode, next_inode.0, name)?;
+        (
+            self.get_bucket(RIndex),
+            self.get_bucket(Inode),
+            self.get_bucket(Dentry),
+        )
+            .transaction(|(rindx, inode, dentry)| {
+                rindx.insert(key.as_bytes(), next_inode.1.clone())?;
+                inode.insert(next_inode.1.clone(), inode_attr.clone())?;
+                dentry.insert(next_inode.1.clone(), dentry_attr.clone())?;
+                Ok(())
+            })?;
+        Ok(next_inode.0)
+    }
+
+    fn mount_file(&self, path: impl AsRef<Path>, parent_inode: u64, content: IVec) -> Result<u64> {
+        let next_inode = handle_next_inode();
+        let name = extract_name(path.as_ref());
+        let key = into_string(path.as_ref());
+        let inode_attr: IVec = InodeAttributes::new_file(next_inode.0, content.len() as u64).into();
+        self.join_dir(parent_inode, next_inode.0, name)?;
+        (
+            self.get_bucket(RIndex),
+            self.get_bucket(Inode),
+            self.get_bucket(Data),
+        )
+            .transaction(|(rindx, inode, data)| {
+                rindx.insert(key.as_bytes(), next_inode.1.clone())?;
+                inode.insert(next_inode.1.clone(), inode_attr.clone())?;
+                data.insert(next_inode.1.clone(), content.clone())?;
+                Ok(())
+            })?;
+        Ok(next_inode.0)
+    }
+
+    fn edit_file(&self, path: impl AsRef<Path>, content: IVec) -> Result<()> {
+        let key = into_string(path.as_ref());
+        let inode_ivec = self.get_bucket(Inode).get(key)?.unwrap();
+        fn update_inode_attr(old: Option<&[u8]>) -> Option<InodeAttributes> {
+            match old {
+                Some(bytes) => {
+                    let mut inode_attr: InodeAttributes = bytes.try_into().unwrap();
+                    inode_attr.last_modified = time_now();
+                    inode_attr.last_metadata_changed = time_now();
+                    Some(inode_attr)
+                }
+                None => None,
+            }
+        }
+        self.get_bucket(Inode)
+            .fetch_and_update(inode_ivec.clone(), update_inode_attr)?;
+        self.get_bucket(Data)
+            .insert(inode_ivec.clone(), content.clone())?;
+        Ok(())
+    }
+
+    fn join_dir(&self, parent_inode: u64, inode: u64, name: String) -> Result<()> {
+        let update_dentry_attr = |old: Option<&[u8]>| -> Option<DentryAttributes> {
+            match old {
+                Some(bytes) => {
+                    let mut inode_attr: DentryAttributes = bytes.try_into().unwrap();
+                    inode_attr.entries.insert(name.clone(), inode);
+                    Some(inode_attr)
+                }
+                None => None,
+            }
+        };
+        self.get_bucket(Dentry)
+            .fetch_and_update(u64_to_ivec(parent_inode), update_dentry_attr)?;
+        Ok(())
     }
 }

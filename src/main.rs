@@ -33,7 +33,6 @@ async fn main() {
         }
         Ok(_) => info!("mount file-system at: {:#?}", &kufu_config.mount.path),
     }
-
     watcher.build_api_pool().await.unwrap();
     watcher.watch().await.unwrap();
 }
