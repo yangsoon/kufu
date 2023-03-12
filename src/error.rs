@@ -1,4 +1,5 @@
 use kube::{config::KubeconfigError, core::gvk, runtime::watcher};
+use std::string::FromUtf8Error;
 use thiserror::Error;
 use tokio::task;
 
@@ -42,4 +43,13 @@ pub enum Error {
 
     #[error("look up child: {1} entry from: parent: {0} failed")]
     ChildEntryNotFound(String, String),
+
+    #[error("mock parent dir for {0} failed")]
+    MockParentDirError(String),
+
+    #[error("look up cluster object data {0} failed")]
+    ClusterObjectDataNotFound(u64),
+
+    #[error("covert ivec to string failed: {0}")]
+    ConvertIVecToStringError(#[from] FromUtf8Error),
 }

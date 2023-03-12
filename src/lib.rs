@@ -8,6 +8,7 @@ pub mod kube;
 
 #[macro_use]
 extern crate lazy_static;
+use ::kube::discovery::Scope;
 use ::kube::{
     core::DynamicObject, core::GroupVersionKind, discovery::ApiCapabilities, runtime::watcher,
     Client,
@@ -26,6 +27,12 @@ pub type Result<T> = std::result::Result<T, error::Error>;
 pub struct ClusterObject<'a> {
     pub meta: &'a ClusterObjectMeta,
     pub obj: &'a DynamicObject,
+}
+
+impl<'a> ClusterObject<'a> {
+    pub fn scope(&self) -> Scope {
+        self.meta.caps.scope.clone()
+    }
 }
 
 #[derive(Clone, Debug)]

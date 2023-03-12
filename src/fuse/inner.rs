@@ -2,6 +2,7 @@ use crate::db::{FSManger, SledDb};
 use crate::error::Error::ChildEntryNotFound;
 use crate::{Result, FILE_HANDLE_NUM};
 use fuser::{FileAttr, ReplyDirectory};
+use std::cmp::min;
 use std::ffi::{OsStr, OsString};
 use std::str::FromStr;
 use tracing::info;
@@ -36,7 +37,7 @@ impl FsInner {
     }
 
     pub fn get_attr(&self, inode: u64) -> Result<FileAttr> {
-        let attr = self.store.get_inode(inode)?;
+        let attr = self.store.get_inode_attr(inode)?;
         Ok(attr.into())
     }
 
@@ -64,7 +65,7 @@ impl FsInner {
     }
 
     pub fn open_dir(&self, inode: u64, read: bool, write: bool) -> Result<u64> {
-        let mut inode_attr = self.store.get_inode(inode)?;
+        let mut inode_attr = self.store.get_inode_attr(inode)?;
         inode_attr.open_file_handles += 1;
         self.store.update_inode(inode, inode_attr)?;
         let mut fh = next_file_handle();
@@ -75,6 +76,17 @@ impl FsInner {
             fh |= FILE_HANDLE_WRITE_BIT;
         }
         Ok(fh)
+    }
+
+    pub fn read(&self, inode: u64, offset: i64, size: u32) -> Result<Vec<u8>> {
+        info!("read inode: {}, offset :{} size: {}", inode, offset, size);
+        let ivec = self.store.get_data(inode)?;
+        let data = &*ivec;
+        let read_size = min(size, data.len().saturating_sub(offset as usize) as u32);
+        let start = offset as usize;
+        let end = start + read_size as usize;
+        let buffer = &data[start..end];
+        Ok(buffer.to_vec())
     }
 }
 

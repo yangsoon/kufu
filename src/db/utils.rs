@@ -1,5 +1,6 @@
 use crate::db::Bucket;
 use crate::{ClusterObject, Result, INODE_NUM};
+use kube::core::DynamicObject;
 use kube::discovery::Scope;
 use sled::{Db, IVec};
 use std::path::Path;
@@ -11,9 +12,9 @@ pub fn u64_to_ivec(number: u64) -> IVec {
     IVec::from(number.to_be_bytes().to_vec())
 }
 
-pub fn ivec_to_u64(value: IVec) -> u64 {
+pub fn ivec_to_u64(value: &IVec) -> u64 {
     assert_eq!(value.len(), 8);
-    let raw = &*value;
+    let raw = &**value;
     u64::from_be_bytes(raw[0..8].try_into().unwrap())
 }
 
@@ -27,7 +28,7 @@ pub fn get_resource_full_key(cluster_obj: &ClusterObject) -> String {
     let name = cluster_obj.obj.metadata.name.as_ref().unwrap();
     let cluster = &cluster_obj.meta.cluster;
     let namespace = cluster_obj.obj.metadata.namespace.as_ref();
-    match cluster_obj.meta.caps.scope {
+    match cluster_obj.scope() {
         Scope::Namespaced => {
             format!(
                 "{}/namespace/{}/{}/{}",
@@ -44,9 +45,9 @@ pub fn get_resource_full_key(cluster_obj: &ClusterObject) -> String {
 }
 
 pub fn get_resource_api_key(cluster_obj: &ClusterObject) -> String {
-    let kind = &cluster_obj.meta.gvk.kind;
+    let kind = &cluster_obj.meta.gvk.kind.to_ascii_lowercase();
     let cluster = &cluster_obj.meta.cluster;
-    match cluster_obj.meta.caps.scope {
+    match cluster_obj.scope() {
         Scope::Namespaced => {
             let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
             format!("{}/namespace/{}/{}", cluster, namespace, kind)
@@ -59,7 +60,7 @@ pub fn get_resource_api_key(cluster_obj: &ClusterObject) -> String {
 
 pub fn get_parent_resource_full_key(cluster_obj: &ClusterObject) -> String {
     let cluster = &cluster_obj.meta.cluster;
-    match cluster_obj.meta.caps.scope {
+    match cluster_obj.scope() {
         Scope::Namespaced => {
             let namespace = cluster_obj.obj.metadata.namespace.as_ref().unwrap();
             format!("{}/namespace/{}", cluster, namespace)

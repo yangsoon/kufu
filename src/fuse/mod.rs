@@ -16,7 +16,6 @@ use std::os::raw::c_int;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
 use tracing::*;
-use tracing_subscriber::field::debug;
 
 use crate::db::SledDb;
 use crate::Result as KufuResult;
@@ -245,14 +244,15 @@ impl Filesystem for Fs {
         size: u32,
         flags: i32,
         lock_owner: Option<u64>,
-        reply: ReplyData,
+        mut reply: ReplyData,
     ) {
-        warn!(
-            "[Not Implemented] read(ino: {:#x?}, fh: {}, offset: {}, size: {}, \
-            flags: {:#x?}, lock_owner: {:?})",
-            ino, fh, offset, size, flags, lock_owner
-        );
-        reply.error(ENOSYS);
+        match self.inner.read(ino, offset, size) {
+            Ok(data) => reply.data(&data),
+            Err(e) => {
+                error!("fail to read err: {:?}", e);
+                reply.error(ENOSYS);
+            }
+        }
     }
 
     fn write(
